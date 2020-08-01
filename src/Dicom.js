@@ -217,41 +217,47 @@ export const bytesToShortSigned = (bytes) => {
     return pixelVal
 }
 
+export const getMinMax = ( pixelData ) => {
+    let pixelCount = pixelData.length
+    let min = 0, max = 0
+
+    for ( let idx = 0; idx < pixelCount; idx += 2 ) {
+        let pixelVal = bytesToShortSigned( [
+            pixelData[idx],
+            pixelData[idx+1]
+        ]  )
+
+        if (pixelVal < min)
+            min = pixelVal
+
+        if (pixelVal > max)
+            max = pixelVal
+    }
+    return { min, max }
+}
+
 export const draw = ( { dataSet, canvas } ) => {
     const monochrome2 = LutMonochrome2()
     const ctx = canvas.getContext( '2d' )
     const imageData = ctx.createImageData( 512, 512 )
     const pixelData = getPixelData( dataSet )
+    let pixelCount = pixelData.length
+
+    let { min: minPixel, max: maxPixel } = getMinMax( pixelData )
+
+    let windowWidth = Math.abs( maxPixel - minPixel );
+    let windowCenter = ( maxPixel + minPixel ) / 2.0;
+
+    console.debug( `minPixel: ${minPixel} , maxPixel: ${maxPixel}` )
+
     let rgbaIdx = 0
-
-    let pixelCount = 512 * 512 * 2
-    let minPixelVal = 0, maxPixelVal = 0
-
     for ( let idx = 0; idx < pixelCount; idx += 2 ) {
         let pixelVal = bytesToShortSigned( [
             pixelData[idx],
             pixelData[idx+1]
         ]  )
 
-        if (pixelVal < minPixelVal)
-            minPixelVal = pixelVal
-
-        if (pixelVal > maxPixelVal)
-            maxPixelVal = pixelVal
-    }
-
-    let windowWidth = Math.abs( maxPixelVal - minPixelVal );
-    let windowCenter = ( maxPixelVal + minPixelVal ) / 2.0;
-
-    console.log( `minPixelVal: ${minPixelVal} , maxPixelVal: ${maxPixelVal}` )
-
-    for ( let idx = 0; idx < pixelCount; idx += 2 ) {
-        let pixelVal = bytesToShortSigned( [
-            pixelData[idx],
-            pixelData[idx+1]
-        ]  )
-
-        let binIdx = Math.floor( (pixelVal - minPixelVal) / windowWidth * 256 );
+        let binIdx = Math.floor( (pixelVal - minPixel) / windowWidth * 256 );
 
         let displayVal = monochrome2[ binIdx ]
         if ( displayVal == null )
