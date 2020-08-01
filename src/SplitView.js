@@ -1,16 +1,22 @@
-import React, {useEffect, useState} from "react";
-import {DicomInfo, DicomInfoView, getPatientId, parseByteArray} from "./Dicom";
+import React, { useEffect, useRef, useState } from "react";
+import { constructInfo, getInfoView, draw, parseByteArray } from "./Dicom";
 
 const SplitView = () => {
 
-    const [dataset, setDataset] = useState(null)
+    const [dataSet, setDataSet] = useState( null )
     const [dicomInfo, setDicomInfo] = useState( null )
 
+    const canvasDicom = useRef( null )
+
     useEffect(() => {
-        if( dataset ) {
-            setDicomInfo( DicomInfo(dataset) )
+
+        if( dataSet ) {
+
+            setDicomInfo( constructInfo(dataSet) )
+            draw( { dataSet, canvas: canvasDicom.current } )
+
         }
-    }, [dataset])
+    }, [dataSet])
 
     const onSelectDicom = (files) => {
         console.log(files)
@@ -18,7 +24,7 @@ const SplitView = () => {
         reader.onload = (file) => {
             let arrayBuffer = reader.result
             let byteArray = new Uint8Array( arrayBuffer )
-            setDataset( parseByteArray( byteArray ) )
+            setDataSet( parseByteArray( byteArray ) )
         }
         files && reader.readAsArrayBuffer( files[0] )
     }
@@ -26,9 +32,12 @@ const SplitView = () => {
     return (
         <div>
             SplitView
-            <input type={"file"} onChange={(e) => onSelectDicom(e.target.files)} />
+            <input type={"file"}
+                   onChange={ (e) => onSelectDicom(e.target.files) } />
 
-            { dicomInfo && DicomInfoView( dicomInfo ) }
+            <canvas id={"canvas-dicom"} ref={canvasDicom} width={512} height={512} />
+
+            { dicomInfo && getInfoView( dicomInfo ) }
         </div>
     )
 }
