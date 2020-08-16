@@ -195,14 +195,14 @@ export const getInfoView = ( dicomInfo) => {
     return infoJsx
 }
 
-export const LutMonochrome2 = () => {
-    let lut = []
-    for ( let idx = 0, byt = 255; idx < 256; idx++, byt-- ) {
-        // r, g, b, a
-        lut.push( [byt, byt, byt, 0xff] )
+    export const LutMonochrome2 = () => {
+        let lut = []
+        for ( let idx = 0, byt = 255; idx < 256; idx++, byt-- ) {
+            // r, g, b, a
+            lut.push( [byt, byt, byt, 0xff] )
+        }
+        return lut
     }
-    return lut
-}
 
 export const bytesToShortSigned = (bytes) => {
     let byteA = bytes[ 1 ]
@@ -217,59 +217,127 @@ export const bytesToShortSigned = (bytes) => {
     return pixelVal
 }
 
-export const getMinMax = ( pixelData ) => {
-    let pixelCount = pixelData.length
-    let min = 0, max = 0
+    export const getMinMax = ( pixelData ) => {
+        let pixelCount = pixelData.length
+        let min = 0, max = 0
 
-    for ( let idx = 0; idx < pixelCount; idx += 2 ) {
-        let pixelVal = bytesToShortSigned( [
-            pixelData[idx],
-            pixelData[idx+1]
-        ]  )
+        for ( let idx = 0; idx < pixelCount; idx += 2 ) {
+            let pixelVal = bytesToShortSigned( [
+                pixelData[idx],
+                pixelData[idx+1]
+            ]  )
 
-        if (pixelVal < min)
-            min = pixelVal
+            if (pixelVal < min)
+                min = pixelVal
 
-        if (pixelVal > max)
-            max = pixelVal
+            if (pixelVal > max)
+                max = pixelVal
+        }
+        return { min, max }
     }
-    return { min, max }
-}
 
-export const draw = ( { dataSet, canvas } ) => {
-    const monochrome2 = LutMonochrome2()
-    const ctx = canvas.getContext( '2d' )
-    const imageData = ctx.createImageData( 512, 512 )
-    const pixelData = getPixelData( dataSet )
-    let pixelCount = pixelData.length
+    export const draw = ( { dataSet, canvas } ) => {
 
-    let { min: minPixel, max: maxPixel } = getMinMax( pixelData )
+        const { width: widthCvs, height: heightCvs} = canvas;
 
-    let windowWidth = Math.abs( maxPixel - minPixel );
-    let windowCenter = ( maxPixel + minPixel ) / 2.0;
+        const monochrome2 = LutMonochrome2()
+        const ctx = canvas.getContext( '2d' )
+        const imageDataCvs = ctx.createImageData( widthCvs, heightCvs )
+        const pixelDataDs = getPixelData( dataSet )
+        const pixelCountDs = pixelDataDs.length
 
-    console.debug( `minPixel: ${minPixel} , maxPixel: ${maxPixel}` )
+        const widthDs = getUintAsString({dataSet, tag: Tags.Image.Columns_uint})
+        const heightDs = getUintAsString({dataSet, tag: Tags.Image.Rows_uint})
 
-    let rgbaIdx = 0
-    for ( let idx = 0; idx < pixelCount; idx += 2 ) {
-        let pixelVal = bytesToShortSigned( [
-            pixelData[idx],
-            pixelData[idx+1]
-        ]  )
+        const pixelCountCvs = widthCvs * heightCvs * 2;
 
-        let binIdx = Math.floor( (pixelVal - minPixel) / windowWidth * 256 );
+        const scale = pixelCountCvs / pixelCountDs;
 
-        let displayVal = monochrome2[ binIdx ]
-        if ( displayVal == null )
-            displayVal = [ 0, 0, 0, 255]
+        let { min: minPixel, max: maxPixel } = getMinMax( pixelDataDs )
 
-        imageData.data[ rgbaIdx ] = displayVal[0]
-        imageData.data[ rgbaIdx + 1 ] = displayVal[1]
-        imageData.data[ rgbaIdx + 2 ] = displayVal[2]
-        imageData.data[ rgbaIdx + 3 ] = displayVal[3]
-        rgbaIdx += 4
+        const windowWidth = Math.abs( maxPixel - minPixel );
+        // let windowCenter = ( maxPixel + minPixel ) / 2.0;
+
+        console.debug( `minPixel: ${minPixel} , maxPixel: ${maxPixel}, ${heightDs}, pixelCount: ${pixelCountDs}, ${pixelCountCvs}, ${widthDs} ${scale} ${widthCvs} ${heightCvs}` )
+
+        if( scale === 1 ) {
+
+            for ( let idxRow = 0; idxRow < heightDs; idxRow++ ) {
+
+                for ( let idxCol = 0; idxCol < widthDs; idxCol++ ) {
+
+                    let idxPixelDs = 2 * ( ( idxRow * widthDs ) + idxCol )
+
+                    const pixelVal = bytesToShortSigned([
+                        pixelDataDs [ idxPixelDs ],
+                        pixelDataDs [ idxPixelDs + 1 ]
+                    ])
+
+                    const binIdx = Math.floor( ( pixelVal - minPixel ) / windowWidth * 256 );
+
+                    let displayVal = monochrome2[ binIdx ]
+                    if ( displayVal == null )
+                        displayVal = [ 0, 0, 0, 255 ]
+
+                    let idxCanvas = 4 * ( ( idxRow * widthDs ) + idxCol )
+
+                    imageDataCvs.data[ idxCanvas     ] = displayVal[ 0 ]
+                    imageDataCvs.data[ idxCanvas + 1 ] = displayVal[ 1 ]
+                    imageDataCvs.data[ idxCanvas + 2 ] = displayVal[ 2 ]
+                    imageDataCvs.data[ idxCanvas + 3 ] = displayVal[ 3 ]
+                }
+            }
+        }
+        else if (scale === 4) {
+
+            for ( let idxRow = 0, idxRowCvs = 0
+                    ; idxRow < heightDs
+                    ; idxRow++, idxRowCvs += 2 )
+            {
+                for ( let idxCol = 0, idxColCvs = 0
+                        ; idxCol < widthDs
+                        ; idxCol++, idxColCvs += 8 )
+                {
+
+                    let idxPixelDs = 2 * ( ( idxRow * widthDs ) + idxCol )
+
+                    const pixelVal = bytesToShortSigned([
+                        pixelDataDs [ idxPixelDs ],
+                        pixelDataDs [ idxPixelDs + 1 ]
+                    ])
+
+                    const binIdx = Math.floor( ( pixelVal - minPixel ) / windowWidth * 256 );
+
+                    let displayVal = monochrome2[ binIdx ]
+                    if ( displayVal == null )
+                        displayVal = [ 0, 0, 0, 255 ]
+
+                    let idxCvsCurr = ( idxRowCvs * widthDs * 8) + idxColCvs
+                    let idxCvsCurr2 = ( (idxRowCvs+1) * widthDs * 8) + idxColCvs
+
+                    imageDataCvs.data[ idxCvsCurr     ] = displayVal[ 0 ]
+                    imageDataCvs.data[ idxCvsCurr + 1 ] = displayVal[ 1 ]
+                    imageDataCvs.data[ idxCvsCurr + 2 ] = displayVal[ 2 ]
+                    imageDataCvs.data[ idxCvsCurr + 3 ] = displayVal[ 3 ]
+                    imageDataCvs.data[ idxCvsCurr + 4 ] = displayVal[ 0 ]
+                    imageDataCvs.data[ idxCvsCurr + 5 ] = displayVal[ 1 ]
+                    imageDataCvs.data[ idxCvsCurr + 6 ] = displayVal[ 2 ]
+                    imageDataCvs.data[ idxCvsCurr + 7 ] = displayVal[ 3 ]
+
+                    imageDataCvs.data[ idxCvsCurr2     ] = displayVal[ 0 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 1 ] = displayVal[ 1 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 2 ] = displayVal[ 2 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 3 ] = displayVal[ 3 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 4 ] = displayVal[ 0 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 5 ] = displayVal[ 1 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 6 ] = displayVal[ 2 ]
+                    imageDataCvs.data[ idxCvsCurr2 + 7 ] = displayVal[ 3 ]
+                }
+            }
+
+        }
+
+        ctx.putImageData( imageDataCvs, 0, 0 )
+
     }
-    ctx.putImageData( imageData, 0, 0 )
-
-}
 
