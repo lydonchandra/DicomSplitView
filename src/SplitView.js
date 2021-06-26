@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { constructInfo, getInfoView, draw, parseByteArray } from "./Dicom";
 import { Button} from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import Draggable from "react-draggable"
+// import Split from 'react-split'
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -29,8 +31,19 @@ const SplitView = () => {
     const [currentCanvasWidth, setCurrentCanvasWidth] = useState( CanvasWidth1x )
 
     const canvasDicom = useRef( null )
+    const canvasDicom2 = useRef( null )
+
 
     const classes = useStyles();
+
+    const onStart = () => {
+
+    };
+
+    const onStop = () => {
+
+    };
+    const dragHandlers = {onStart: onStart, onStop: onStop};
 
     useEffect(() => {
 
@@ -86,11 +99,27 @@ const SplitView = () => {
                 </Button>
             </label>
 
-            <canvas id={"canvas-dicom"}
-                    ref={canvasDicom}
-                    className={classes.canvas}
-                    width={currentCanvasWidth}
-                    height={currentCanvasWidth} />
+            <div id={"canvas-container"} style={{width: currentCanvasWidth+'px'}}>
+
+                <Draggable bounds="parent" axis="x" {...dragHandlers}>
+                    <Button style={{height: "50px", width: "50px", position: "absolute", float: "left"}} variant={"contained"} color={"secondary"}>
+                        Drag-Me!
+                    </Button>
+                </Draggable>
+
+                <canvas id={"canvas-dicom"}
+                        ref={canvasDicom}
+                        className={classes.canvas}
+                        width={currentCanvasWidth}
+                        height={currentCanvasWidth} />
+
+            </div>
+
+            {/*<canvas id={"canvas-dicom2"}*/}
+            {/*        ref={canvasDicom2}*/}
+            {/*        className={classes.canvas}*/}
+            {/*        width={currentCanvasWidth}*/}
+            {/*        height={currentCanvasWidth} />*/}
 
             { dicomInfo && getInfoView( dicomInfo ) }
         </div>
